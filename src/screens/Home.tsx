@@ -5,6 +5,7 @@ import { activeMatch, dateParts, setRecord, setsOf, shortDate, todayLocal } from
 import { showToast } from '../hooks';
 import { dismissInstallHint, readInstallContext, shouldShowInstallHint } from '../installHint';
 import { navigate, paths } from '../router';
+import { requestCode, signOut, syncNow, useSyncState, verifyCode } from '../sync/controller';
 import { eventsForMatch, formatAverage, formatHitting, summarize } from '../stats/engine';
 import { Icon, ICON, Shell, Tabs } from '../ui/Shell';
 import { PassDistribution, StatsCells, StatsHead, SummaryCard } from '../ui/StatCards';
@@ -179,6 +180,130 @@ function InstallHint() {
   );
 }
 
+/** Sign in with an emailed code, then show whether the cloud copy is up to date. */
+function AccountCard() {
+  const s = useSyncState();
+  const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  if (s.phase === 'off') return null;
+
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    setProblem(null);
+    try {
+      await fn();
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (s.phase === 'signed-out') {
+    return (
+      <form
+        class="card form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          run(async () => {
+            if (!sent) {
+              await requestCode(email);
+              setSent(true);
+            } else {
+              await verifyCode(email, code);
+              showToast('Signed in');
+            }
+          });
+        }}
+      >
+        <h2>Back up and sync</h2>
+        <div class="note">
+          Sign in to keep a copy in the cloud and see your stats on other devices. Tracking works without it.
+        </div>
+        <div class="field">
+          <label for="acEmail">Email</label>
+          <input
+            id="acEmail"
+            type="email"
+            required
+            autocomplete="email"
+            disabled={sent}
+            value={email}
+            onInput={(e) => setEmail(e.currentTarget.value)}
+          />
+        </div>
+        {sent ? (
+          <div class="field">
+            <label for="acCode">Code from the email</label>
+            <input
+              id="acCode"
+              inputMode="numeric"
+              autocomplete="one-time-code"
+              required
+              value={code}
+              onInput={(e) => setCode(e.currentTarget.value)}
+            />
+          </div>
+        ) : null}
+        {problem ? (
+          <div class="note" role="alert" style="color:var(--red,#f87171)">
+            {problem}
+          </div>
+        ) : null}
+        <button class="big g-blue" type="submit" disabled={busy}>
+          {sent ? 'Sign in' : 'Email me a code'}
+        </button>
+        {sent ? (
+          <button
+            class="ghost"
+            type="button"
+            onClick={() => {
+              setSent(false);
+              setCode('');
+              setProblem(null);
+            }}
+          >
+            Use a different email
+          </button>
+        ) : null}
+      </form>
+    );
+  }
+
+  const status =
+    s.phase === 'error'
+      ? `Sync problem: ${s.error ?? 'unknown'}`
+      : s.pending > 0
+        ? `${s.pending} change${s.pending === 1 ? '' : 's'} waiting to sync${s.phase === 'offline' ? ' (offline)' : ''}`
+        : s.phase === 'offline'
+          ? 'Offline. Everything is saved on this device.'
+          : s.phase === 'syncing'
+            ? 'Syncing…'
+            : 'Everything is backed up.';
+
+  return (
+    <div class="card form">
+      <h2>Back up and sync</h2>
+      <div class="note">
+        Signed in as <b>{s.email}</b>
+      </div>
+      <div class="note" role="status">
+        {status}
+      </div>
+      <button class="ghost" onClick={() => void syncNow()}>
+        Sync now
+      </button>
+      <button class="ghost" onClick={() => void signOut()}>
+        Sign out
+      </button>
+    </div>
+  );
+}
+
 export function MatchesScreen({ data }: { data: AppData }) {
   const active = activeMatch(data.matches);
   return (
@@ -195,6 +320,7 @@ export function MatchesScreen({ data }: { data: AppData }) {
       <StartMatchForm />
       <MatchList data={data} />
       <PlayerForm key={data.player?.id ?? 'none'} data={data} />
+      <AccountCard />
     </Shell>
   );
 }

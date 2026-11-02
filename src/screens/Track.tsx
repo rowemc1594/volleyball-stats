@@ -17,7 +17,7 @@ import { navigate, paths } from '../router';
 import { eventsForMatch, eventsForSet, formatPercent, summarize } from '../stats/engine';
 import type { StatEvent } from '../stats/types';
 import { useWakeLock } from '../wakeLock';
-import { Icon, ICON, SavedDot, Shell } from '../ui/Shell';
+import { Icon, ICON, Shell, SyncChip } from '../ui/Shell';
 import { SummaryCard } from '../ui/StatCards';
 
 type Selected = 'all' | number | null; // null follows the latest set
@@ -219,7 +219,7 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
       sub={`vs ${match.opponent} · ${dp.month} ${dp.day}`}
       right={
         <>
-          <SavedDot />
+          <SyncChip />
           <button class="hbtn" disabled={!last || !live} onClick={() => last && undo(last)}>
             <Icon d={ICON.undo} size={16} /> Undo
           </button>

@@ -1,8 +1,16 @@
 import type { HitValue, PassValue, ServeValue, StatEvent } from '../stats/types';
-import { db, type Match, type Player, type SetRow } from './schema';
+import { db, type Match, type Player, type SetRow, type SyncTable } from './schema';
 
 const uuid = () => crypto.randomUUID();
 const nowIso = () => new Date().toISOString();
+
+/**
+ * Mark rows as changed so the next sync sends them. Call inside the same transaction as the
+ * write, so a row can never change without being queued (a crash cannot lose it).
+ */
+export function queue(table: SyncTable, ...rowIds: string[]) {
+  return db.outbox.bulkPut(rowIds.map((rowId) => ({ key: `${table}:${rowId}`, table, rowId, stamp: uuid() })));
+}
 
 export type StatInput =
   | { kind: 'pass'; value: PassValue }
@@ -51,12 +59,16 @@ async function ensurePlayer(): Promise<Player> {
   if (existing) return existing;
   const player: Player = { id: uuid(), name: 'Son', jersey: '' };
   await db.players.add(player);
+  await queue('players', player.id);
   return player;
 }
 
 export async function savePlayer(name: string, jersey: string): Promise<void> {
-  const player = await ensurePlayer();
-  await db.players.update(player.id, { name: name.trim() || 'Son', jersey: jersey.trim() });
+  await db.transaction('rw', db.players, db.outbox, async () => {
+    const player = await ensurePlayer();
+    await db.players.update(player.id, { name: name.trim() || 'Son', jersey: jersey.trim() });
+    await queue('players', player.id);
+  });
 }
 
 export async function startMatch(input: {
@@ -64,7 +76,7 @@ export async function startMatch(input: {
   matchDate: string;
   event?: string;
 }): Promise<string> {
-  return db.transaction('rw', db.players, db.matches, db.sets, async () => {
+  return db.transaction('rw', db.players, db.matches, db.sets, db.outbox, async () => {
     const player = await ensurePlayer();
     const match: Match = {
       id: uuid(),
@@ -75,8 +87,11 @@ export async function startMatch(input: {
       done: false,
       createdAt: nowIso(),
     };
+    const first: SetRow = { id: uuid(), matchId: match.id, setNumber: 1, scoreUs: null, scoreThem: null };
     await db.matches.add(match);
-    await db.sets.add({ id: uuid(), matchId: match.id, setNumber: 1, scoreUs: null, scoreThem: null });
+    await db.sets.add(first);
+    await queue('matches', match.id);
+    await queue('sets', first.id);
     return match.id;
   });
 }
@@ -89,19 +104,27 @@ export async function addEvent(setId: string, input: StatInput, id: string = uui
   const set = await db.sets.get(setId);
   if (!set) throw new Error(`Unknown set ${setId}`);
   const event = { id, setId, matchId: set.matchId, occurredAt: nowIso(), ...input } as StatEvent;
-  await db.events.put(event);
+  await db.transaction('rw', db.events, db.outbox, async () => {
+    await db.events.put(event);
+    await queue('events', id);
+  });
   return id;
 }
 
 /** Undo marks the row deleted. The row stays so a later sync can propagate it. */
 export async function undoEvent(id: string): Promise<void> {
-  const event = await db.events.get(id);
-  if (event && event.deletedAt == null) await db.events.update(id, { deletedAt: nowIso() });
+  await db.transaction('rw', db.events, db.outbox, async () => {
+    const event = await db.events.get(id);
+    if (event && event.deletedAt == null) {
+      await db.events.update(id, { deletedAt: nowIso() });
+      await queue('events', id);
+    }
+  });
 }
 
 /** Add or remove a point for the current set. Both sides are saved so the score is complete. */
 export async function adjustScore(setId: string, side: 'us' | 'them', delta: number): Promise<void> {
-  await db.transaction('rw', db.sets, async () => {
+  await db.transaction('rw', db.sets, db.outbox, async () => {
     const set = await db.sets.get(setId);
     if (!set) return;
     let us = set.scoreUs ?? 0;
@@ -109,52 +132,68 @@ export async function adjustScore(setId: string, side: 'us' | 'them', delta: num
     if (side === 'us') us = Math.max(0, us + delta);
     else them = Math.max(0, them + delta);
     await db.sets.update(setId, { scoreUs: us, scoreThem: them });
+    await queue('sets', setId);
   });
 }
 
 /** Set one side of a set score by hand. null clears it. */
 export async function setScoreSide(setId: string, side: 'us' | 'them', value: number | null): Promise<void> {
-  await db.sets.update(setId, side === 'us' ? { scoreUs: value } : { scoreThem: value });
+  await db.transaction('rw', db.sets, db.outbox, async () => {
+    await db.sets.update(setId, side === 'us' ? { scoreUs: value } : { scoreThem: value });
+    await queue('sets', setId);
+  });
 }
 
 async function saveScore(matchId: string, setNumber: number, score: SetScore): Promise<SetRow> {
   const set = await db.sets.where('[matchId+setNumber]').equals([matchId, setNumber]).first();
   if (!set) throw new Error(`Match ${matchId} has no set ${setNumber}`);
   await db.sets.update(set.id, { scoreUs: score.us, scoreThem: score.them });
+  await queue('sets', set.id);
   return set;
 }
 
 /** Save the final score of this set and start the next one. Returns the new set's id. */
 export async function endSet(matchId: string, setNumber: number, score: SetScore): Promise<string> {
-  return db.transaction('rw', db.sets, async () => {
+  return db.transaction('rw', db.sets, db.outbox, async () => {
     await saveScore(matchId, setNumber, score);
     const next = await db.sets.where('[matchId+setNumber]').equals([matchId, setNumber + 1]).first();
     if (next) return next.id;
     const row: SetRow = { id: uuid(), matchId, setNumber: setNumber + 1, scoreUs: null, scoreThem: null };
     await db.sets.add(row);
+    await queue('sets', row.id);
     return row.id;
   });
 }
 
 /** Save the final score and mark the match Final. No empty extra set is created. */
 export async function finishMatch(matchId: string, setNumber: number, score: SetScore): Promise<void> {
-  await db.transaction('rw', db.sets, db.matches, async () => {
+  await db.transaction('rw', db.sets, db.matches, db.outbox, async () => {
     await saveScore(matchId, setNumber, score);
     await db.matches.update(matchId, { done: true });
+    await queue('matches', matchId);
   });
 }
 
 export async function reopenMatch(matchId: string): Promise<void> {
-  await db.matches.update(matchId, { done: false });
+  await db.transaction('rw', db.matches, db.outbox, async () => {
+    await db.matches.update(matchId, { done: false });
+    await queue('matches', matchId);
+  });
 }
 
 /** Hides the match and its taps everywhere. Nothing is physically removed yet. */
 export async function deleteMatch(matchId: string): Promise<void> {
   const at = nowIso();
-  await db.transaction('rw', db.matches, db.events, async () => {
+  await db.transaction('rw', db.matches, db.events, db.outbox, async () => {
     await db.matches.update(matchId, { deletedAt: at });
+    await queue('matches', matchId);
+    const touched: string[] = [];
     await db.events.where('matchId').equals(matchId).modify((e) => {
-      if (e.deletedAt == null) e.deletedAt = at;
+      if (e.deletedAt == null) {
+        e.deletedAt = at;
+        touched.push(e.id);
+      }
     });
+    if (touched.length) await queue('events', ...touched);
   });
 }

@@ -149,6 +149,17 @@ button {
   color: var(--amber);
   white-space: nowrap;
 }
+.sync.err {
+  color: var(--red, #f87171);
+}
+.sync.off {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5b6784;
+  display: block;
+  flex: 0 0 auto;
+}
 .sync.ok {
   width: 8px;
   height: 8px;

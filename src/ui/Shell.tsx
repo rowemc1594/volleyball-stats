@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact';
 import { navigate, paths } from '../router';
 import { useToast } from '../hooks';
+import { useSyncState } from '../sync/controller';
 
 interface ShellProps {
   title: string;
@@ -75,9 +76,34 @@ export const ICON = {
   x: 'M6 6l12 12M18 6L6 18',
 };
 
-/** Phase 2 is local only, so the chip just confirms the tap is on this device. */
-export function SavedDot() {
-  return <span class="sync ok" title="Saved on this device" role="img" aria-label="Saved on this device" />;
+/**
+ * Always safe to tap: everything is saved on this device first. The chip says whether the
+ * cloud copy is up to date: green dot = yes, text = changes waiting, grey = not signed in.
+ */
+export function SyncChip() {
+  const s = useSyncState();
+  if (s.phase === 'off' || s.phase === 'signed-out') {
+    return <span class="sync off" title="Saved on this device only" role="img" aria-label="Saved on this device only" />;
+  }
+  if (s.phase === 'error') {
+    return (
+      <span class="sync err" title={s.error ?? 'Sync problem'} role="status">
+        Sync error
+      </span>
+    );
+  }
+  if (s.pending > 0) {
+    const label = s.phase === 'offline' ? `Offline · ${s.pending} to sync` : `${s.pending} to sync`;
+    return (
+      <span class="sync" role="status">
+        {label}
+      </span>
+    );
+  }
+  if (s.phase === 'offline') {
+    return <span class="sync" role="status">Offline</span>;
+  }
+  return <span class="sync ok" title="Saved and synced" role="img" aria-label="Saved and synced" />;
 }
 
 export function Tabs({ tab }: { tab: 'matches' | 'season' }) {

@@ -28,8 +28,8 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          # Public by design (anon key is protected by row-level security).
-          # Added in Phase 4; empty until then.
+          # Public by design (the key is protected by row-level security).
+          # If these two repository variables are missing, the app builds as local-only.
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3

@@ -1,0 +1,22 @@
+:root {
+  --bg: #060a14;
+  --ink: #f1f5fb;
+  --muted: #8a98b3;
+  --sky: #38bdf8;
+  color-scheme: dark;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+.blank {
+  padding: 24px;
+}
+.blank h1 {
+  color: var(--sky);
+}
+.blank p {
+  color: var(--muted);
+}

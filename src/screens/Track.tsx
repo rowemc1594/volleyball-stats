@@ -259,7 +259,7 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
 
       <SummaryCard s={stats} />
 
-      <Band colour="sky" title="Serve Receive (0–3)" info={`In-Sys: ${formatPercent(stats.pass.inSystemPct)} (3s+2s)`}>
+      <Band colour="sky" title="Serve Receive (0–3)" info={`In-Sys ${formatPercent(stats.pass.inSystemPct)}`}>
         <Keys keys={PASS_KEYS} cols={4} {...band} />
       </Band>
       <Band colour="green" title="Attacking / Hitting" info={`${stats.hit.kill} Kills (${stats.hit.attempts} Att)`}>

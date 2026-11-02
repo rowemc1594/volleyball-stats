@@ -17,7 +17,7 @@ interface ShellProps {
 export function Shell({ title, sub, back, right, tabs, compact, children }: ShellProps) {
   const toast = useToast();
   return (
-    <>
+    <div class="page">
       <div class="stick">
         <div class="inner">
           <div class="hdr">
@@ -37,13 +37,16 @@ export function Shell({ title, sub, back, right, tabs, compact, children }: Shel
           {tabs ? <div class="tabs">{tabs}</div> : null}
         </div>
       </div>
-      <div class={`inner body${compact ? ' compact' : ''}`}>{children}</div>
+      {/* Only this area scrolls, so the header can never sit on top of the content. */}
+      <div class="scroller">
+        <div class={`inner body${compact ? ' compact' : ''}`}>{children}</div>
+      </div>
       {toast ? (
         <div class="toast" role="status">
           {toast}
         </div>
       ) : null}
-    </>
+    </div>
   );
 }
 

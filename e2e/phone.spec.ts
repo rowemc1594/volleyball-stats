@@ -53,6 +53,49 @@ for (const phone of PHONES) {
   });
 }
 
+// Zoomed-in iPhones (Display Zoom, large text) give the app less room. Not everything can
+// fit there, so the content scrolls under the header, but the header must never cover it.
+for (const phone of [
+  { name: 'small 320x568', width: 320, height: 568 },
+  { name: 'iPhone SE 375x667', width: 375, height: 667 },
+  { name: 'iPhone 390x844', width: 390, height: 844 },
+]) {
+  test(`header never covers the stats on ${phone.name}`, async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: phone.width, height: phone.height },
+      isMobile: true,
+      hasTouch: true,
+    });
+    const page = await context.newPage();
+    await startMatch(page);
+
+    const bottom = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+    const header = await bottom('.stick');
+    const summary = await bottom('.sum');
+    expect(summary.y, 'summary starts below the header').toBeGreaterThanOrEqual(header.y + header.height);
+
+    // The page itself never scrolls; only the content area does.
+    const pageScrolls = await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight);
+    expect(pageScrolls).toBe(false);
+
+    // Scroll the content all the way down and back up: the summary is reachable again.
+    await page.locator('.scroller').evaluate((el) => (el.scrollTop = el.scrollHeight));
+    const headerAfter = await bottom('.stick');
+    expect(headerAfter.y).toBe(header.y);
+    await page.locator('.scroller').evaluate((el) => (el.scrollTop = 0));
+    const summaryAgain = await bottom('.sum');
+    expect(summaryAgain.y).toBeGreaterThanOrEqual(header.y + header.height);
+
+    // Band headings stay on one line.
+    for (const h of await page.locator('.bt').all()) {
+      expect((await h.boundingBox())!.height).toBeLessThan(24);
+    }
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await context.close();
+  });
+}
+
 test('tap, undo and reload keep the right totals', async ({ page }) => {
   await startMatch(page);
   await tap(page, 'pass 3', 2);

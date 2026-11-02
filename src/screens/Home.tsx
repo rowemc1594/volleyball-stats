@@ -3,6 +3,7 @@ import type { AppData } from '../db/repo';
 import { savePlayer, startMatch } from '../db/repo';
 import { activeMatch, dateParts, setRecord, setsOf, shortDate, todayLocal } from '../domain';
 import { showToast } from '../hooks';
+import { dismissInstallHint, readInstallContext, shouldShowInstallHint } from '../installHint';
 import { navigate, paths } from '../router';
 import { eventsForMatch, formatAverage, formatHitting, summarize } from '../stats/engine';
 import { Icon, ICON, Shell, Tabs } from '../ui/Shell';
@@ -150,10 +151,39 @@ function MatchList({ data }: { data: AppData }) {
   );
 }
 
+function InstallHint() {
+  const [show, setShow] = useState(() => shouldShowInstallHint(readInstallContext()));
+  if (!show) return null;
+  return (
+    <div class="card hint" role="note">
+      <b>Install this app on your iPhone</b>
+      <ol>
+        <li>
+          Tap the <b>Share</b> button (square with an arrow) in Safari.
+        </li>
+        <li>
+          Choose <b>Add to Home Screen</b>, then <b>Add</b>.
+        </li>
+        <li>Open it from the new icon. It works offline, and Safari will not clear your stats.</li>
+      </ol>
+      <button
+        class="ghost"
+        onClick={() => {
+          dismissInstallHint();
+          setShow(false);
+        }}
+      >
+        Got it
+      </button>
+    </div>
+  );
+}
+
 export function MatchesScreen({ data }: { data: AppData }) {
   const active = activeMatch(data.matches);
   return (
     <Shell title={`${data.player?.name || 'Son'}’s Stats`} sub="Courtside stats" tabs={<Tabs tab="matches" />}>
+      <InstallHint />
       {active ? (
         <button class="big g-blue resume" onClick={() => navigate(paths.track(active.id))}>
           <span>Resume match</span>

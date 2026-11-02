@@ -63,7 +63,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 62px;
+  height: 54px;
 }
 .logo {
   width: 38px;
@@ -142,7 +142,7 @@ button {
 .tabs {
   display: flex;
   gap: 8px;
-  padding-block: 10px;
+  padding-block: 6px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -150,7 +150,7 @@ button {
   display: none;
 }
 .pill {
-  height: 36px;
+  height: 32px;
   padding: 0 16px;
   border-radius: 99px;
   border: 1px solid var(--line);
@@ -171,7 +171,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-block: 14px 40px;
+  padding-block: 14px calc(40px + env(safe-area-inset-bottom, 0px));
 }
 .card {
   background: var(--card);
@@ -271,7 +271,7 @@ h1 {
 }
 .key {
   position: relative;
-  min-height: 70px;
+  min-height: clamp(52px, 8.3dvh, 78px);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.13);
   color: #fff;
@@ -280,7 +280,7 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 16px 2px 5px; /* top space keeps the count badge off the big label */
+  padding: 14px 2px 4px; /* top space keeps the count badge off the big label */
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
@@ -316,13 +316,13 @@ h1 {
 }
 .key .n {
   position: absolute;
-  top: 5px;
-  right: 6px;
-  min-width: 20px;
-  height: 20px;
-  border-radius: 10px;
+  top: 3px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
   background: rgba(0, 0, 0, 0.45);
-  font: 700 11px var(--mono);
+  font: 700 10.5px var(--mono);
   font-style: normal;
   display: flex;
   align-items: center;
@@ -801,4 +801,59 @@ tr.click {
     animation: none;
     transition: none;
   }
+}
+
+/* Track screen: every control fits on one iPhone screen (375x667 and up); only history scrolls. */
+.body.compact {
+  gap: 8px;
+  padding-top: 8px;
+}
+.compact .card {
+  padding: 8px 10px;
+}
+.compact .sum {
+  padding: 6px 10px;
+}
+.compact .sum .v {
+  font-size: 24px;
+  margin-top: 0;
+}
+.compact .bhead {
+  margin-bottom: 6px;
+}
+.compact .keys {
+  gap: 6px;
+}
+.compact .score {
+  gap: 8px;
+}
+.compact .side {
+  padding: 6px 6px 8px;
+  gap: 2px;
+}
+.compact .sv {
+  font-size: 30px;
+}
+.compact .sp,
+.compact .sm {
+  height: 44px;
+}
+.compact .endset {
+  height: 42px;
+}
+@media (max-height: 740px) {
+  .key small {
+    display: none;
+  }
+}
+
+.hint ol {
+  margin: 8px 0 12px;
+  padding-left: 20px;
+  line-height: 1.5;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.hint {
+  border-color: var(--sky);
 }

@@ -16,6 +16,7 @@ import { colourOf, HIT_KEYS, PASS_KEYS, SERVE_KEYS, type KeyDef } from '../keys'
 import { navigate, paths } from '../router';
 import { eventsForMatch, eventsForSet, formatPercent, summarize } from '../stats/engine';
 import type { StatEvent } from '../stats/types';
+import { useWakeLock } from '../wakeLock';
 import { Icon, ICON, SavedDot, Shell } from '../ui/Shell';
 import { SummaryCard } from '../ui/StatCards';
 
@@ -178,6 +179,7 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
   const [pop, setPop] = useState<string | null>(null);
 
   useLeaveIfMissing(!!match);
+  useWakeLock(!!match && !match.done);
   if (!match) return <div class="inner body empty">Loading match…</div>;
 
   const matchSets = setsOf(data.sets, match.id);
@@ -212,6 +214,7 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
   return (
     <Shell
       back
+      compact
       title={`${name}’s Stats`}
       sub={`vs ${match.opponent} · ${dp.month} ${dp.day}`}
       right={
@@ -266,21 +269,15 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
         <Keys keys={SERVE_KEYS} cols={3} {...band} />
       </Band>
 
-      <div class="card">
-        <div class="bhead">
-          <div class="bt">
-            <span class="dot" style="background:var(--ink)" />
-            Score
-          </div>
-          <div class="bi">Set {target.setNumber}</div>
-        </div>
-        <div class="score">
+      <div class="score">
           {(['us', 'them'] as const).map((side) => {
             const label = side === 'us' ? 'Us' : 'Them';
             const value = (side === 'us' ? target.scoreUs : target.scoreThem) ?? 0;
             return (
               <div class="side" key={side}>
-                <div class="sl">{label}</div>
+                <div class="sl">
+                  {label} · Set {target.setNumber}
+                </div>
                 <div class="sctl">
                   <button
                     class="sm"
@@ -306,7 +303,6 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
             );
           })}
         </div>
-      </div>
 
       {live && (sel === 'all' || sel === latest.setNumber) ? (
         <button class="endset" onClick={() => setSheetOpen(true)}>

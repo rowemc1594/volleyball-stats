@@ -9,10 +9,12 @@ interface ShellProps {
   back?: boolean;
   right?: ComponentChildren;
   tabs?: ComponentChildren;
+  /** Tighter spacing so every control fits one phone screen. */
+  compact?: boolean;
   children: ComponentChildren;
 }
 
-export function Shell({ title, sub, back, right, tabs, children }: ShellProps) {
+export function Shell({ title, sub, back, right, tabs, compact, children }: ShellProps) {
   const toast = useToast();
   return (
     <>
@@ -35,7 +37,7 @@ export function Shell({ title, sub, back, right, tabs, children }: ShellProps) {
           {tabs ? <div class="tabs">{tabs}</div> : null}
         </div>
       </div>
-      <div class="inner body">{children}</div>
+      <div class={`inner body${compact ? ' compact' : ''}`}>{children}</div>
       {toast ? (
         <div class="toast" role="status">
           {toast}

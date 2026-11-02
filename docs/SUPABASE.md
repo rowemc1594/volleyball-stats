@@ -11,6 +11,14 @@ Everything here is done in the Supabase website. None of it needs a terminal.
 This creates four tables (players, matches, sets, events) and turns on **row-level security**:
 a logged-in owner can only see and change their own rows, and a logged-out visitor gets nothing.
 
+## 1b. Turn on sharing (paste a second file) - Phase 5
+
+Do the same thing with `supabase/share.sql`: **SQL Editor -> New query**, paste the whole file,
+**Run**. Run it **after** `schema.sql`. It is safe to run again.
+
+It adds a share-links table that only you can see, and one locked-down function that logged-out
+viewers use to read stats with a valid link. Revoking a link in the app stops it working at once.
+
 ## 2. Tell Supabase where the app lives
 
 **Authentication → URL Configuration**

@@ -892,3 +892,16 @@ tr.click {
 .hint {
   border-color: var(--sky);
 }
+
+.slink {
+  border-top: 1px solid var(--line, #1f2a44);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.slhead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

@@ -12,23 +12,32 @@ interface ShellProps {
   tabs?: ComponentChildren;
   /** Tighter spacing so every control fits one phone screen. */
   compact?: boolean;
+  /** Shared read-only view: the logo is just a logo, and Back goes to `onBack`. */
+  viewer?: boolean;
+  onBack?: () => void;
   children: ComponentChildren;
 }
 
-export function Shell({ title, sub, back, right, tabs, compact, children }: ShellProps) {
+export function Shell({ title, sub, back, right, tabs, compact, viewer, onBack, children }: ShellProps) {
   const toast = useToast();
   return (
     <div class="page">
       <div class="stick">
         <div class="inner">
           <div class="hdr">
-            <button
-              class={`logo${back ? ' back' : ''}`}
-              aria-label={back ? 'Back to matches' : 'Matches home'}
-              onClick={() => navigate(paths.matches)}
-            >
-              {back ? <Icon d="M15 6l-6 6 6 6" size={22} /> : '🏐'}
-            </button>
+            {viewer && !back ? (
+              <div class="logo" aria-hidden="true">
+                🏐
+              </div>
+            ) : (
+              <button
+                class={`logo${back ? ' back' : ''}`}
+                aria-label={back ? (viewer ? 'Back' : 'Back to matches') : 'Matches home'}
+                onClick={onBack ?? (() => navigate(paths.matches))}
+              >
+                {back ? <Icon d="M15 6l-6 6 6 6" size={22} /> : '🏐'}
+              </button>
+            )}
             <div class="ttl">
               <div class="t1">{title}</div>
               <div class="t2">{sub}</div>

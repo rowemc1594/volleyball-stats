@@ -5,6 +5,7 @@ import { activeMatch, dateParts, setRecord, setsOf, shortDate, todayLocal } from
 import { showToast } from '../hooks';
 import { dismissInstallHint, readInstallContext, shouldShowInstallHint } from '../installHint';
 import { navigate, paths } from '../router';
+import { ShareCard } from './Share';
 import { requestCode, signOut, syncNow, useSyncState, verifyCode } from '../sync/controller';
 import { eventsForMatch, formatAverage, formatHitting, summarize } from '../stats/engine';
 import { Icon, ICON, Shell, Tabs } from '../ui/Shell';
@@ -321,6 +322,7 @@ export function MatchesScreen({ data }: { data: AppData }) {
       <MatchList data={data} />
       <PlayerForm key={data.player?.id ?? 'none'} data={data} />
       <AccountCard />
+      <ShareCard data={data} />
     </Shell>
   );
 }

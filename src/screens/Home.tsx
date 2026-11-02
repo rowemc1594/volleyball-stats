@@ -277,7 +277,7 @@ function AccountCard() {
 
   const status =
     s.phase === 'error'
-      ? `Sync problem: ${s.error ?? 'unknown'}`
+      ? (s.error ?? 'Sync problem. Your stats are safe on this device.')
       : s.pending > 0
         ? `${s.pending} change${s.pending === 1 ? '' : 's'} waiting to sync${s.phase === 'offline' ? ' (offline)' : ''}`
         : s.phase === 'offline'

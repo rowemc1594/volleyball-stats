@@ -1,6 +1,7 @@
 import { liveQuery } from 'dexie';
 import { useEffect, useState } from 'preact/hooks';
 import { db } from '../db/schema';
+import { showToast } from '../hooks';
 import { syncOnce, type Cloud } from './engine';
 import { cloud, supabase } from './supabase';
 
@@ -50,6 +51,17 @@ export function useSyncState(): SyncState {
   return s;
 }
 
+/** Turn a server or network message into something a person can act on. */
+export function friendlySyncError(message: string): string {
+  if (/jwt|not authenticated|invalid.*token|token.*expired|refresh_token/i.test(message)) {
+    return 'Your sign-in expired. Sign in again to keep syncing.';
+  }
+  if (/row-level security|permission denied/i.test(message)) {
+    return 'This account is not allowed to save that. Sign in with the account you started with.';
+  }
+  return `Sync failed (${message}). Your stats are safe on this device and will retry.`;
+}
+
 let running = false;
 let again = false;
 
@@ -76,7 +88,7 @@ export async function syncNow(client: Cloud | null = cloud, scope: string | null
     const message = err instanceof Error ? err.message : String(err);
     // A failed fetch with no network is "offline", not a fault.
     const offline = navigator.onLine === false || /failed to fetch|network|load failed/i.test(message);
-    update({ phase: offline ? 'offline' : 'error', error: offline ? null : message });
+    update({ phase: offline ? 'offline' : 'error', error: offline ? null : friendlySyncError(message) });
   } finally {
     running = false;
   }
@@ -116,7 +128,8 @@ export function startSync(): void {
     error: (err) => console.error('Outbox count failed', err),
   });
 
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_OUT' && userId) showToast('Signed out. Your stats stay on this device.');
     userId = session?.user.id ?? null;
     update({ email: session?.user.email ?? null });
     if (userId) {

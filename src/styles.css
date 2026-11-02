@@ -315,7 +315,7 @@ h1 {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 14px 2px 4px; /* top space keeps the count badge off the big label */
+  padding: 16px 2px 4px; /* top space keeps the count badge off the big label */
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
@@ -351,18 +351,18 @@ h1 {
 }
 .key .n {
   position: absolute;
-  top: 3px;
-  right: 4px;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 9px;
-  background: rgba(0, 0, 0, 0.45);
-  font: 700 10.5px var(--mono);
+  top: 2px;
+  right: 2px;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.55);
+  font: 700 10px var(--mono);
   font-style: normal;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 5px;
+  padding: 0 3px;
 }
 .key .n.pop {
   animation: pop 0.35s;
@@ -840,7 +840,7 @@ tr.click {
 
 /* Track screen: every control fits on one iPhone screen (375x667 and up); only history scrolls. */
 .body.compact {
-  gap: 8px;
+  gap: 7px;
   padding-top: 8px;
 }
 .compact .card {

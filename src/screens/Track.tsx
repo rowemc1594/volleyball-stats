@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   addEvent,
   adjustScore,
@@ -28,6 +28,8 @@ function sameStat(e: StatEvent, k: KeyDef) {
 
 interface BandProps {
   keys: KeyDef[];
+  /** Names the group of buttons for screen readers, so "Error" is clear in each band. */
+  label: string;
   cols: 3 | 4;
   events: StatEvent[];
   live: boolean;
@@ -35,9 +37,9 @@ interface BandProps {
   onTap: (k: KeyDef) => void;
 }
 
-function Keys({ keys, cols, events, live, pop, onTap }: BandProps) {
+function Keys({ keys, label, cols, events, live, pop, onTap }: BandProps) {
   return (
-    <div class={`keys k${cols}`}>
+    <div class={`keys k${cols}`} role="group" aria-label={label}>
       {keys.map((k) => {
         const id = `${k.input.kind}:${k.input.value}`;
         const count = events.filter((e) => sameStat(e, k)).length;
@@ -47,7 +49,7 @@ function Keys({ keys, cols, events, live, pop, onTap }: BandProps) {
             key={id}
             class={`key g-${k.colour}`}
             disabled={!live}
-            aria-label={`${k.input.kind} ${k.big}`}
+            data-key={id}
             onClick={() => onTap(k)}
           >
             <b>{k.big}</b>
@@ -90,6 +92,32 @@ function EndSetSheet({
 }) {
   const [us, setUs] = useState(set.scoreUs?.toString() ?? '');
   const [them, setThem] = useState(set.scoreThem?.toString() ?? '');
+  const box = useRef<HTMLDivElement>(null);
+
+  // A proper dialog: focus moves in, Tab stays inside, Escape closes, and focus goes back after.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    box.current?.querySelector('input')?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') return onClose();
+      if (e.key !== 'Tab' || !box.current) return;
+      const items = [...box.current.querySelectorAll<HTMLElement>('input, button:not(:disabled)')];
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      opener?.focus?.();
+    };
+  }, []);
   const read = (): SetScore => {
     const num = (v: string) => (v.trim() === '' || isNaN(Number(v)) ? null : Math.max(0, Math.round(Number(v))));
     return { us: num(us), them: num(them) };
@@ -107,7 +135,7 @@ function EndSetSheet({
 
   return (
     <div class="sheet">
-      <div class="card form sheetbox" role="dialog" aria-label={`End set ${set.setNumber}`}>
+      <div class="card form sheetbox" role="dialog" aria-modal="true" aria-label={`End set ${set.setNumber}`} ref={box}>
         <h2 style="margin:0">End Set {set.setNumber}</h2>
         <div class="note">Final score (optional)</div>
         <div class="row" style="align-items:center">
@@ -260,13 +288,13 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
       <SummaryCard s={stats} />
 
       <Band colour="sky" title="Serve Receive (0–3)" info={`In-Sys ${formatPercent(stats.pass.inSystemPct)}`}>
-        <Keys keys={PASS_KEYS} cols={4} {...band} />
+        <Keys keys={PASS_KEYS} label="Serve receive" cols={4} {...band} />
       </Band>
       <Band colour="green" title="Attacking / Hitting" info={`${stats.hit.kill} Kills (${stats.hit.attempts} Att)`}>
-        <Keys keys={HIT_KEYS} cols={3} {...band} />
+        <Keys keys={HIT_KEYS} label="Attacking" cols={3} {...band} />
       </Band>
       <Band colour="amber" title="Serving" info={`${stats.serve.total} Serves • ${stats.serve.ace} Aces`}>
-        <Keys keys={SERVE_KEYS} cols={3} {...band} />
+        <Keys keys={SERVE_KEYS} label="Serving" cols={3} {...band} />
       </Band>
 
       <div class="score">

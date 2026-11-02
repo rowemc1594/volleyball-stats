@@ -9,16 +9,29 @@ const PHONES = [
 ];
 const STATUS_BAR = 20;
 
+const KEYS: Record<string, string> = {
+  'pass 0': 'pass:0',
+  'pass 1': 'pass:1',
+  'pass 2': 'pass:2',
+  'pass 3': 'pass:3',
+  'hit KILL': 'hit:kill',
+  'hit ERR': 'hit:error',
+  'serve ACE': 'serve:ace',
+  'serve FAULT': 'serve:error',
+};
+/** A tap button by its short name. Matches on a stable attribute, not on the words shown. */
+const key = (page: Page, name: string) => page.locator(`button[data-key="${KEYS[name]}"]`);
+
 async function startMatch(page: Page, opponent = 'Ridgeline') {
   await page.goto('./');
   await page.getByLabel('Opponent').fill(opponent);
   await page.getByRole('button', { name: /start match/i }).click();
-  await expect(page.getByRole('button', { name: 'pass 3' })).toBeVisible();
+  await expect(key(page, 'pass 3')).toBeVisible();
 }
 
 const tap = (page: Page, label: string, times = 1) =>
   (async () => {
-    for (let i = 0; i < times; i++) await page.getByRole('button', { name: label, exact: true }).click();
+    for (let i = 0; i < times; i++) await key(page, label).click();
   })();
 
 for (const phone of PHONES) {
@@ -33,7 +46,7 @@ for (const phone of PHONES) {
 
     const limit = phone.height - STATUS_BAR;
     for (const name of ['pass 3', 'pass 0', 'hit KILL', 'hit ERR', 'serve ACE', 'serve FAULT']) {
-      const box = await page.getByRole('button', { name, exact: true }).boundingBox();
+      const box = await key(page, name).boundingBox();
       expect(box, name).not.toBeNull();
       expect(box!.y + box!.height, `${name} bottom`).toBeLessThanOrEqual(limit);
     }
@@ -43,7 +56,7 @@ for (const phone of PHONES) {
     expect(end!.y + end!.height, 'End Set').toBeLessThanOrEqual(limit);
 
     // The tap targets are big enough for one-handed use.
-    const pass3 = await page.getByRole('button', { name: 'pass 3', exact: true }).boundingBox();
+    const pass3 = await key(page, 'pass 3').boundingBox();
     expect(pass3!.height).toBeGreaterThanOrEqual(54);
 
     // No sideways scrolling anywhere.
@@ -168,9 +181,43 @@ test('works offline from a cold start', async ({ browser }) => {
   await expect(cold.locator('.sum')).toContainText('2 passes');
 
   // Tapping while offline still saves, and survives a reload.
-  await cold.getByRole('button', { name: 'hit KILL', exact: true }).click();
+  await key(cold, 'hit KILL').click();
   await expect(cold.locator('.sum')).toContainText('1.000'); // shown only after the local write lands
   await cold.reload();
   await expect(cold.locator('.sum')).toContainText('1.000');
   await context.close();
 });
+
+// The little count badge in a button's corner must never sit on top of that button's own words.
+for (const phone of [
+  { name: 'small 320x568', width: 320, height: 568 },
+  { name: 'iPhone SE 375x667', width: 375, height: 667 },
+  { name: 'iPhone 390x844', width: 390, height: 844 },
+]) {
+  test(`count badges do not cover button labels on ${phone.name}`, async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: phone.width, height: phone.height },
+      isMobile: true,
+      hasTouch: true,
+    });
+    const page = await context.newPage();
+    await startMatch(page);
+    // Tap one key to a two-digit count so the badge is at its widest.
+    for (let i = 0; i < 12; i++) await key(page, 'pass 3').click();
+    await page.waitForTimeout(600); // let the badge finish its little pop animation before measuring
+
+    const overlaps = await page.evaluate(() => {
+      const hit = (a: DOMRect, b: DOMRect) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+      const found: string[] = [];
+      document.querySelectorAll<HTMLElement>('.key').forEach((k) => {
+        const badge = k.querySelector('.n')!.getBoundingClientRect();
+        k.querySelectorAll('b, strong, small').forEach((t) => {
+          if (hit(badge, t.getBoundingClientRect())) found.push(`${k.dataset.key}: ${t.tagName} "${t.textContent}"`);
+        });
+      });
+      return found;
+    });
+    expect(overlaps).toEqual([]);
+    await context.close();
+  });
+}

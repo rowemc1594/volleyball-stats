@@ -30,7 +30,28 @@ export const SERVE_KEYS: KeyDef[] = [
   { input: { kind: 'serve', value: 'error' }, big: 'FAULT', title: 'Error (−1)', sub: 'Net / Long / Line', colour: 'red' },
 ];
 
+/**
+ * Blocking buttons. Err is not listed here: it opens a two-button choice (BLOCK_ERROR_KEYS) so the
+ * recorder can say whether it was a net touch or stepping under.
+ */
+export const BLOCK_KEYS: KeyDef[] = [
+  { input: { kind: 'block', value: 'block' }, big: 'BLOCK', title: 'Point (+1)', sub: 'Blocked Down', colour: 'green' },
+  { input: { kind: 'block', value: 'touch' }, big: 'TOUCH', title: 'No Point', sub: 'Got a Hand On It', colour: 'blue' },
+];
+
+export const BLOCK_ERROR_KEYS: KeyDef[] = [
+  { input: { kind: 'block', value: 'error_net' }, big: 'NET', title: 'Err (−1)', sub: 'Touched the Net', colour: 'red' },
+  { input: { kind: 'block', value: 'error_under' }, big: 'UNDER', title: 'Err (−1)', sub: 'Stepped Under', colour: 'red' },
+];
+
+export const SETTING_KEYS: KeyDef[] = [
+  { input: { kind: 'setting', value: 3 }, big: '3', title: 'Perfect', sub: 'Any Hitter', colour: 'green' },
+  { input: { kind: 'setting', value: 2 }, big: '2', title: 'Good', sub: 'Hittable', colour: 'blue' },
+  { input: { kind: 'setting', value: 1 }, big: '1', title: 'Bad', sub: 'Can Still Get It Over', colour: 'amber' },
+  { input: { kind: 'setting', value: 0 }, big: '0', title: 'Error', sub: 'Dropped / Double', colour: 'red' },
+];
+
 export function colourOf(kind: StatInput['kind'], value: StatInput['value']): Colour {
-  const all = [...PASS_KEYS, ...HIT_KEYS, ...SERVE_KEYS];
+  const all = [...PASS_KEYS, ...HIT_KEYS, ...SERVE_KEYS, ...BLOCK_KEYS, ...BLOCK_ERROR_KEYS, ...SETTING_KEYS];
   return all.find((k) => k.input.kind === kind && k.input.value === value)?.colour ?? 'gray';
 }

@@ -8,7 +8,7 @@ A fast, simple volleyball stat tracker for one 15-year-old's team. A parent taps
 - **Recorder** (Mike, maybe one other parent): enters stats, manages matches. Needs one-handed, no-scroll entry that tolerates a bad gym signal.
 - **Viewers** (parents, coach): read-only, ideally with just a link and no account.
 
-**Non-goals (v1):** full team stats, rotations, serve-receive zones, blocks/digs/assists, live scoreboards, per-point rally tracking.
+**Non-goals (v1):** full team stats, rotations, serve-receive zones, digs, live scoreboards (blocks and setting were added in Phase 7), per-point rally tracking.
 
 ## 2. Decisions and open questions
 | # | Item | Status |
@@ -31,6 +31,14 @@ Collected from standard volleyball statistics sources.
 - **Hit:** Kill, In (continues the rally: dug or blocked and kept in play), Error (out, net, or blocked for a point).
   - Hitting % = (kills − errors) / total attempts. Around .200 is good at this age; .300 or higher is excellent.
   - Attempts = kills + in + errors.
+- **Block (added in Phase 7), three outcomes (kept deliberately simple for this level):**
+  - **Block:** blocked down for an immediate point.
+  - **Touch:** touched it in any way but no point resulted (a solid block that keeps the play going and a small touch both count).
+  - **Err:** a blocking error that gives the opponent the point. Tapping Err opens a quick two-button choice: **Net** (touched the net) or **Under** (stepped under the net / other violation). Both count as errors in the stats and the type is also shown in the history.
+  - Blocks per set = blocks / sets played. Block % = blocks / (blocks + touches); errors (net and under) are tracked and shown as a count but are not part of the percentage. 0 in the denominator shows a dash.
+- **Setting, 0-3 (added in Phase 7).** Our own scale, modelled on passing (not the official assist stat). In code the kind is `setting`, to avoid confusion with game sets:
+  - 3 = perfect set; 2 = good; 1 = bad but the hitter can still get it over; 0 = error.
+  - Setting average = (1·n1 + 2·n2 + 3·n3) / total sets. Good % = (3s + 2s) / total sets. 0 attempts shows a dash.
 - Every stat is attached to a **set**, which belongs to a **match**. Season totals are derived, never stored.
 
 ## 4. Data model
@@ -40,8 +48,9 @@ Event-sourced and append-only. Aggregates are computed from events.
 players      id, name, jersey, owner_id
 matches      id, player_id, opponent, match_date, event, sets (count), scores {n:{us,them}}, done (bool), created_at
 sets         id, match_id, set_number, score_us, score_them
-events       id (client-generated UUID), set_id, match_id, kind ('pass'|'serve'|'hit'),
-             value (pass: 0-3; serve: 'ace'|'in'|'error'; hit: 'kill'|'in'|'error'),
+events       id (client-generated UUID), set_id, match_id, kind ('pass'|'serve'|'hit'|'block'|'setting'),
+             value (pass: 0-3; serve: 'ace'|'in'|'error'; hit: 'kill'|'in'|'error';
+                    block: 'block'|'touch'|'error_net'|'error_under'; setting: 0-3),
              occurred_at, deleted_at (soft delete for undo)
 share_links  id, player_id, token (random, unguessable), created_at, revoked_at
 ```
@@ -100,6 +109,9 @@ Rules:
 4. **Cloud sync and auth.** Supabase schema, RLS, magic-link login, outbox sync, idempotent upserts, sync status chip. *Done when:* events entered offline appear on a second device after reconnect, with no duplicates after forced retries.
 5. **Sharing and viewer mode.** Share-token RPC, read-only views, revoke link, copy summary. *Done when:* an incognito browser with the link sees the stats, cannot write, and loses access once the link is revoked.
 6. **Hardening.** Empty and error states, accessibility pass (focus states, contrast, reduced motion), and a real-match field test.
+7. **Blocking and setting stats** (parent request). Stat engine functions and Vitest tests first; new `block` and `set` event kinds in the types, Dexie and repo; Track layout reordered so every tap target stays big and above the fold: five slim bands (Serve Receive, Hitting, Serving, Blocking, Setting) at the top, then the compact Score and End Set, with the running totals/percentages, Summary card, history and Copy Report moved below (scrolling there is fine); new summary readouts, Season and Match details tables, viewer mode and the Copy Text Report. **Manual step:** a small SQL update to `supabase/schema.sql`'s check constraints, pasted into the Supabase SQL editor *before* deploying (existing data stays valid). *Done when:* tests pass, old events still display correctly, and block/set taps sync and show in viewer mode.
+
+8. **Edit action history** (after Phase 7). Tap a history row to change its value in place (a sheet with that band's buttons, original time and set kept) or delete it; show the full history for the selected set or match, newest first, not just the last 10; an "Add" button to log a missed action into a chosen set. Edits sync with idempotent upserts and need no new database column. Editing is allowed only while a match is live (a Final match is reopened first). *Done when:* an edited value updates every total, syncs without duplicates and shows corrected in viewer mode.
 
 ## 8. Risks and mitigations
 - **iOS PWA quirks:** no install prompt (show Add to Home Screen instructions); storage can be evicted for sites that aren't installed (prompt to install; keep the outbox small; sync often); no Background Sync (sync on foreground).

@@ -39,10 +39,37 @@ export interface HitStats {
   hittingPct: number | null;
 }
 
+export interface BlockStats {
+  /** Blocks for a point. */
+  block: number;
+  /** Touches with no point. */
+  touch: number;
+  /** Net plus under errors. */
+  error: number;
+  errorNet: number;
+  errorUnder: number;
+  /** block + touch + error */
+  attempts: number;
+  /** blocks / (blocks + touches). Errors are counted but not part of this percentage. */
+  blockPct: number | null;
+}
+
+export interface SettingStats {
+  total: number;
+  /** Counts of each setting grade, indexed 0..3. */
+  counts: [number, number, number, number];
+  /** (1*n1 + 2*n2 + 3*n3) / total */
+  average: number | null;
+  /** Share of sets graded 2 or 3. */
+  goodPct: number | null;
+}
+
 export interface StatSummary {
   pass: PassStats;
   serve: ServeStats;
   hit: HitStats;
+  block: BlockStats;
+  setting: SettingStats;
 }
 
 function ratio(numerator: number, denominator: number): number | null {
@@ -112,8 +139,57 @@ export function hitStats(events: readonly StatEvent[]): HitStats {
   return { attempts, kill, in: inPlay, error, hittingPct: ratio(kill - error, attempts) };
 }
 
+export function blockStats(events: readonly StatEvent[]): BlockStats {
+  let block = 0;
+  let touch = 0;
+  let errorNet = 0;
+  let errorUnder = 0;
+  for (const e of activeEvents(events)) {
+    if (e.kind !== 'block') continue;
+    if (e.value === 'block') block++;
+    else if (e.value === 'touch') touch++;
+    else if (e.value === 'error_net') errorNet++;
+    else errorUnder++;
+  }
+  const error = errorNet + errorUnder;
+  return {
+    block,
+    touch,
+    error,
+    errorNet,
+    errorUnder,
+    attempts: block + touch + error,
+    blockPct: ratio(block, block + touch),
+  };
+}
+
+export function settingStats(events: readonly StatEvent[]): SettingStats {
+  const counts: [number, number, number, number] = [0, 0, 0, 0];
+  for (const e of activeEvents(events)) {
+    if (e.kind === 'setting') counts[e.value]++;
+  }
+  const total = counts[0] + counts[1] + counts[2] + counts[3];
+  return {
+    total,
+    counts,
+    average: ratio(counts[1] + 2 * counts[2] + 3 * counts[3], total),
+    goodPct: ratio(counts[2] + counts[3], total),
+  };
+}
+
+/** Blocks (for a point) per set played. `null` when no sets have been played. */
+export function blocksPerSet(blocks: number, setsPlayed: number): number | null {
+  return ratio(blocks, setsPlayed);
+}
+
 export function summarize(events: readonly StatEvent[]): StatSummary {
-  return { pass: passStats(events), serve: serveStats(events), hit: hitStats(events) };
+  return {
+    pass: passStats(events),
+    serve: serveStats(events),
+    hit: hitStats(events),
+    block: blockStats(events),
+    setting: settingStats(events),
+  };
 }
 
 /* Display formatting. Kept here so every screen shows numbers the same way. */

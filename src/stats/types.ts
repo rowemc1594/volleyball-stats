@@ -28,4 +28,19 @@ export interface HitEvent extends BaseEvent {
   value: HitValue;
 }
 
-export type StatEvent = PassEvent | ServeEvent | HitEvent;
+/** Block: 'block' = blocked down for a point, 'touch' = touched with no point, errors say how it went wrong. */
+export type BlockValue = 'block' | 'touch' | 'error_net' | 'error_under';
+/** Setting uses its own 0-3 scale: 3 perfect, 2 good, 1 bad but hittable, 0 error. */
+export type SettingValue = 0 | 1 | 2 | 3;
+
+export interface BlockEvent extends BaseEvent {
+  kind: 'block';
+  value: BlockValue;
+}
+
+export interface SettingEvent extends BaseEvent {
+  kind: 'setting';
+  value: SettingValue;
+}
+
+export type StatEvent = PassEvent | ServeEvent | HitEvent | BlockEvent | SettingEvent;

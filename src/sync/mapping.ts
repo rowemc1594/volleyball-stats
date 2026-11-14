@@ -50,7 +50,7 @@ export const setFromCloud = (r: CloudRow): SetRow => ({
   scoreThem: (r.score_them as number | null) ?? null,
 });
 
-/** Pass values are numbers locally and text in the cloud (one column holds all three kinds). */
+/** Pass and setting values are numbers locally and text in the cloud (one column holds every kind). */
 export const eventToCloud = (e: StatEvent): CloudRow => ({
   id: e.id,
   match_id: e.matchId,
@@ -62,7 +62,7 @@ export const eventToCloud = (e: StatEvent): CloudRow => ({
 });
 export const eventFromCloud = (r: CloudRow): StatEvent => {
   const kind = r.kind as StatEvent['kind'];
-  const value = kind === 'pass' ? Number(r.value) : (r.value as string);
+  const value = kind === 'pass' || kind === 'setting' ? Number(r.value) : (r.value as string);
   return {
     id: r.id as string,
     matchId: r.match_id as string,

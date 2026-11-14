@@ -81,6 +81,11 @@ describe('history helpers', () => {
     expect(describeEvent(ev({}, 'a'))).toBe('Pass 3');
     expect(describeEvent(ev({ kind: 'serve', value: 'error' }, 'a'))).toBe('Serve · Fault');
     expect(describeEvent(ev({ kind: 'hit', value: 'in' }, 'a'))).toBe('Hit · In-Play');
+    expect(describeEvent(ev({ kind: 'block', value: 'block' }, 'a'))).toBe('Block · Block');
+    expect(describeEvent(ev({ kind: 'block', value: 'touch' }, 'a'))).toBe('Block · Touch');
+    expect(describeEvent(ev({ kind: 'block', value: 'error_net' }, 'a'))).toBe('Block · Err (net)');
+    expect(describeEvent(ev({ kind: 'block', value: 'error_under' }, 'a'))).toBe('Block · Err (under)');
+    expect(describeEvent(ev({ kind: 'setting', value: 2 }, 'a'))).toBe('Setting 2');
   });
   it('sorts newest first', () => {
     const sorted = newestFirst([ev({}, '2026-01-01T00:00:01Z'), ev({}, '2026-01-01T00:00:03Z'), ev({}, '2026-01-01T00:00:02Z')]);
@@ -115,6 +120,21 @@ describe('reportText', () => {
         'Hitting: .500 (1 K, 0 E, 2 att)',
       ].join('\n'),
     );
+  });
+
+  it('adds blocking and setting lines only when there are taps, counting net and under errors', () => {
+    const more: StatEvent[] = [
+      ...events,
+      { id: '8', setId: 's1', matchId: 'm1', occurredAt: 'h', kind: 'block', value: 'block' },
+      { id: '9', setId: 's1', matchId: 'm1', occurredAt: 'i', kind: 'block', value: 'touch' },
+      { id: '10', setId: 's1', matchId: 'm1', occurredAt: 'j', kind: 'block', value: 'error_net' },
+      { id: '11', setId: 's1', matchId: 'm1', occurredAt: 'k', kind: 'block', value: 'error_under' },
+      { id: '12', setId: 's1', matchId: 'm1', occurredAt: 'l', kind: 'setting', value: 3 },
+      { id: '13', setId: 's1', matchId: 'm1', occurredAt: 'm', kind: 'setting', value: 1 },
+    ];
+    const lines = reportText(player, match('m1', false), [set(1, 25, 20)], more).split('\n');
+    expect(lines).toContain('Blocking: 1 blocks, 1 touches, 2 errors (1 net, 1 under), block 50%');
+    expect(lines).toContain('Setting: 2.00 avg on 2 (3s 1, 2s 0, 1s 1, 0s 0), good 50%');
   });
 
   it('shows dashes with no data and omits the sets line', () => {

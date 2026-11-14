@@ -1,4 +1,11 @@
-import type { HitValue, PassValue, ServeValue, StatEvent } from '../stats/types';
+import type {
+  BlockValue,
+  HitValue,
+  PassValue,
+  ServeValue,
+  SettingValue,
+  StatEvent,
+} from '../stats/types';
 import { db, type Match, type Player, type SetRow, type SyncTable } from './schema';
 
 const uuid = () => crypto.randomUUID();
@@ -15,7 +22,9 @@ export function queue(table: SyncTable, ...rowIds: string[]) {
 export type StatInput =
   | { kind: 'pass'; value: PassValue }
   | { kind: 'serve'; value: ServeValue }
-  | { kind: 'hit'; value: HitValue };
+  | { kind: 'hit'; value: HitValue }
+  | { kind: 'block'; value: BlockValue }
+  | { kind: 'setting'; value: SettingValue };
 
 export interface SetScore {
   us: number | null;

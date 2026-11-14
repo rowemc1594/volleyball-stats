@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   activeEvents,
+  blockStats,
+  blocksPerSet,
+  settingStats,
   eventsForMatch,
   eventsForSet,
   formatAverage,
@@ -11,7 +14,7 @@ import {
   serveStats,
   summarize,
 } from './engine';
-import type { HitValue, PassValue, ServeValue, StatEvent } from './types';
+import type { BlockValue, HitValue, PassValue, ServeValue, SettingValue, StatEvent } from './types';
 
 let n = 0;
 const base = (setId = 's1', matchId = 'm1') => ({
@@ -33,6 +36,16 @@ const serve = (value: ServeValue, setId?: string, matchId?: string): StatEvent =
 const hit = (value: HitValue, setId?: string, matchId?: string): StatEvent => ({
   ...base(setId, matchId),
   kind: 'hit',
+  value,
+});
+const block = (value: BlockValue, setId?: string, matchId?: string): StatEvent => ({
+  ...base(setId, matchId),
+  kind: 'block',
+  value,
+});
+const setting = (value: SettingValue, setId?: string, matchId?: string): StatEvent => ({
+  ...base(setId, matchId),
+  kind: 'setting',
   value,
 });
 const undone = (e: StatEvent): StatEvent => ({ ...e, deletedAt: '2026-01-01T00:01:00Z' });
@@ -157,6 +170,98 @@ describe('hitStats', () => {
   it('is 1.000 with all kills and -1.000 with all errors', () => {
     expect(hitStats([hit('kill'), hit('kill')]).hittingPct).toBe(1);
     expect(hitStats([hit('error')]).hittingPct).toBe(-1);
+  });
+});
+
+describe('blockStats', () => {
+  it('returns nulls and zeros with no blocks', () => {
+    expect(blockStats([])).toEqual({
+      block: 0,
+      touch: 0,
+      error: 0,
+      errorNet: 0,
+      errorUnder: 0,
+      attempts: 0,
+      blockPct: null,
+    });
+  });
+
+  it('computes block % as blocks / (blocks + touches)', () => {
+    const s = blockStats([block('block'), block('touch'), block('touch'), block('touch')]);
+    expect(s.blockPct).toBeCloseTo(1 / 4, 10);
+  });
+
+  it('counts net and under errors but keeps them out of the percentage', () => {
+    const s = blockStats([block('block'), block('touch'), block('error_net'), block('error_under'), block('error_under')]);
+    expect(s.error).toBe(3);
+    expect(s.errorNet).toBe(1);
+    expect(s.errorUnder).toBe(2);
+    expect(s.attempts).toBe(5);
+    expect(s.blockPct).toBeCloseTo(1 / 2, 10);
+  });
+
+  it('has no percentage when there are only errors', () => {
+    const s = blockStats([block('error_net')]);
+    expect(s.error).toBe(1);
+    expect(s.blockPct).toBeNull();
+  });
+
+  it('is 0% with only touches and 100% with only blocks', () => {
+    expect(blockStats([block('touch')]).blockPct).toBe(0);
+    expect(blockStats([block('block'), block('block')]).blockPct).toBe(1);
+  });
+
+  it('ignores other kinds and undone blocks', () => {
+    const s = blockStats([pass(3), hit('kill'), block('block'), undone(block('touch'))]);
+    expect(s.block).toBe(1);
+    expect(s.touch).toBe(0);
+    expect(s.blockPct).toBe(1);
+  });
+
+  it('computes blocks per set, or null with no sets played', () => {
+    expect(blocksPerSet(3, 2)).toBe(1.5);
+    expect(blocksPerSet(0, 3)).toBe(0);
+    expect(blocksPerSet(2, 0)).toBeNull();
+  });
+});
+
+describe('settingStats', () => {
+  it('returns nulls and zero counts with no sets', () => {
+    expect(settingStats([])).toEqual({ total: 0, counts: [0, 0, 0, 0], average: null, goodPct: null });
+  });
+
+  it('computes the average as (1*n1 + 2*n2 + 3*n3) / total, counting zeros', () => {
+    const s = settingStats([setting(3), setting(3), setting(2), setting(1), setting(0)]);
+    expect(s.total).toBe(5);
+    expect(s.counts).toEqual([1, 1, 1, 2]);
+    expect(s.average).toBeCloseTo(9 / 5, 10);
+  });
+
+  it('computes good % as 2s and 3s over total', () => {
+    const s = settingStats([setting(3), setting(2), setting(1), setting(0)]);
+    expect(s.goodPct).toBe(0.5);
+  });
+
+  it('is 0 when every set is a 0 and 3 when every set is perfect', () => {
+    expect(settingStats([setting(0), setting(0)]).average).toBe(0);
+    expect(settingStats([setting(3), setting(3)]).average).toBe(3);
+  });
+
+  it('keeps setting separate from passing and ignores undone events', () => {
+    const s = settingStats([pass(3), setting(2), undone(setting(0))]);
+    expect(s.total).toBe(1);
+    expect(s.average).toBe(2);
+    expect(passStats([pass(3), setting(2)]).total).toBe(1);
+  });
+});
+
+describe('summarize with block and setting', () => {
+  it('includes all five stat groups, and undo removes block and setting events', () => {
+    const s = summarize([block('block'), undone(block('error_net')), setting(3), undone(setting(0))]);
+    expect(s.block.block).toBe(1);
+    expect(s.block.error).toBe(0);
+    expect(s.setting.average).toBe(3);
+    expect(s.pass.total).toBe(0);
   });
 });
 

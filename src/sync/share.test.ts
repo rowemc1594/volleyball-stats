@@ -66,6 +66,23 @@ describe('parseSharedStats', () => {
     expect(s.hit.kill).toBe(1);
   });
 
+  it('shows block and setting stats to viewers, with setting grades as numbers', () => {
+    const data = parseSharedStats({
+      ...payload,
+      events: [
+        ...payload.events,
+        { id: 'e4', match_id: 'm1', set_id: 's1', kind: 'block', value: 'block', occurred_at: '2026-03-01T18:08:00+00:00' },
+        { id: 'e5', match_id: 'm1', set_id: 's1', kind: 'block', value: 'error_under', occurred_at: '2026-03-01T18:09:00+00:00' },
+        { id: 'e6', match_id: 'm1', set_id: 's1', kind: 'setting', value: '3', occurred_at: '2026-03-01T18:10:00+00:00' },
+        { id: 'e7', match_id: 'm1', set_id: 's1', kind: 'setting', value: '0', occurred_at: '2026-03-01T18:11:00+00:00' },
+      ],
+    })!;
+    const s = summarize(eventsForMatch(data.events, 'm1'));
+    expect(s.block).toMatchObject({ block: 1, errorUnder: 1, blockPct: 1 });
+    expect(s.setting.average).toBe(1.5); // (3 + 0) / 2
+    expect(s.pass.average).toBe(2); // passing is unaffected
+  });
+
   it('treats null (revoked or unknown link) as no data', () => {
     expect(parseSharedStats(null)).toBeNull();
     expect(parseSharedStats(undefined)).toBeNull();

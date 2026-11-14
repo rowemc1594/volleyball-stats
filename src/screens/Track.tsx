@@ -12,13 +12,22 @@ import {
 import type { Match, SetRow } from '../db/schema';
 import { dateParts, describeEvent, newestFirst, reportText, setRecord, setsOf } from '../domain';
 import { showToast, useLeaveIfMissing } from '../hooks';
-import { colourOf, HIT_KEYS, PASS_KEYS, SERVE_KEYS, type KeyDef } from '../keys';
+import {
+  BLOCK_ERROR_KEYS,
+  BLOCK_KEYS,
+  colourOf,
+  HIT_KEYS,
+  PASS_KEYS,
+  SERVE_KEYS,
+  SETTING_KEYS,
+  type KeyDef,
+} from '../keys';
 import { navigate, paths } from '../router';
-import { eventsForMatch, eventsForSet, formatPercent, summarize } from '../stats/engine';
+import { eventsForMatch, eventsForSet, summarize } from '../stats/engine';
 import type { StatEvent } from '../stats/types';
 import { useWakeLock } from '../wakeLock';
 import { Icon, ICON, Shell, SyncChip } from '../ui/Shell';
-import { SummaryCard } from '../ui/StatCards';
+import { ReadoutsCard, SummaryCard } from '../ui/StatCards';
 
 type Selected = 'all' | number | null; // null follows the latest set
 
@@ -30,14 +39,16 @@ interface BandProps {
   keys: KeyDef[];
   /** Names the group of buttons for screen readers, so "Error" is clear in each band. */
   label: string;
-  cols: 3 | 4;
+  cols: 2 | 3 | 4;
   events: StatEvent[];
   live: boolean;
   pop: string | null;
   onTap: (k: KeyDef) => void;
+  /** An extra button after the keys, for Block Err, which asks "net or under?" first. */
+  extra?: preact.ComponentChildren;
 }
 
-function Keys({ keys, label, cols, events, live, pop, onTap }: BandProps) {
+function Keys({ keys, label, cols, events, live, pop, onTap, extra }: BandProps) {
   return (
     <div class={`keys k${cols}`} role="group" aria-label={label}>
       {keys.map((k) => {
@@ -62,11 +73,12 @@ function Keys({ keys, label, cols, events, live, pop, onTap }: BandProps) {
           </button>
         );
       })}
+      {extra}
     </div>
   );
 }
 
-function Band({ colour, title, info, children }: { colour: string; title: string; info: string; children: preact.ComponentChildren }) {
+function Band({ colour, title, children }: { colour: string; title: string; children: preact.ComponentChildren }) {
   return (
     <div class="card">
       <div class="bhead">
@@ -74,9 +86,47 @@ function Band({ colour, title, info, children }: { colour: string; title: string
           <span class="dot" style={`background:var(--${colour})`} />
           {title}
         </div>
-        <div class="bi">{info}</div>
       </div>
       {children}
+    </div>
+  );
+}
+
+/** "Net or under?" Appears after tapping Block Err. Escape, Cancel or a tap outside closes it. */
+function BlockErrorSheet({
+  band,
+  onClose,
+}: {
+  band: Omit<BandProps, 'keys' | 'label' | 'cols' | 'extra'>;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      opener?.focus?.();
+    };
+  }, []);
+  return (
+    <div class="sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div class="card form sheetbox" role="dialog" aria-modal="true" aria-label="Block error type">
+        <h2 style="margin:0">Block error</h2>
+        <Keys
+          keys={BLOCK_ERROR_KEYS}
+          label="Block error type"
+          cols={2}
+          {...band}
+          onTap={(k) => {
+            band.onTap(k);
+            onClose();
+          }}
+        />
+        <button class="ghost" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }
@@ -204,6 +254,7 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
   const [selected, setSelected] = useState<Selected>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [errOpen, setErrOpen] = useState(false);
   const [pop, setPop] = useState<string | null>(null);
 
   useLeaveIfMissing(!!match);
@@ -285,16 +336,41 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
         </div>
       ) : null}
 
-      <SummaryCard s={stats} />
-
-      <Band colour="sky" title="Serve Receive (0–3)" info={`In-Sys ${formatPercent(stats.pass.inSystemPct)}`}>
+      {/* Every tap target comes first and stays big. Totals and history sit below the score. */}
+      <Band colour="sky" title="Serve Receive (0–3)">
         <Keys keys={PASS_KEYS} label="Serve receive" cols={4} {...band} />
       </Band>
-      <Band colour="green" title="Attacking / Hitting" info={`${stats.hit.kill} Kills (${stats.hit.attempts} Att)`}>
+      <Band colour="green" title="Attacking / Hitting">
         <Keys keys={HIT_KEYS} label="Attacking" cols={3} {...band} />
       </Band>
-      <Band colour="amber" title="Serving" info={`${stats.serve.total} Serves • ${stats.serve.ace} Aces`}>
+      <Band colour="amber" title="Serving">
         <Keys keys={SERVE_KEYS} label="Serving" cols={3} {...band} />
+      </Band>
+      <Band colour="violet" title="Blocking">
+        <Keys
+          keys={BLOCK_KEYS}
+          label="Blocking"
+          cols={3}
+          {...band}
+          extra={
+            <button
+              class="key g-red"
+              disabled={!live}
+              data-key="block:error"
+              onClick={() => setErrOpen(true)}
+            >
+              <b>ERR</b>
+              <strong>Net / Under</strong>
+              <small>Tap to choose</small>
+              <em class={`n${pop?.startsWith('block:error') ? ' pop' : ''}`} key={pop?.startsWith('block:error') ? pop : 'block:error'}>
+                {stats.block.error}
+              </em>
+            </button>
+          }
+        />
+      </Band>
+      <Band colour="teal" title="Setting (0–3)">
+        <Keys keys={SETTING_KEYS} label="Setting" cols={4} {...band} />
       </Band>
 
       <div class="score">
@@ -337,6 +413,9 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
           End Set {latest.setNumber}
         </button>
       ) : null}
+
+      <SummaryCard s={stats} />
+      <ReadoutsCard s={stats} setsPlayed={sel === 'all' ? matchSets.length : 1} />
 
       <div class="card">
         <button
@@ -389,6 +468,8 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
           ＋ New match
         </button>
       </div>
+
+      {errOpen ? <BlockErrorSheet band={band} onClose={() => setErrOpen(false)} /> : null}
 
       {sheetOpen ? (
         <EndSetSheet

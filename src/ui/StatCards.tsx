@@ -1,4 +1,5 @@
 import {
+  blocksPerSet,
   formatAverage,
   formatHitting,
   formatPercent,
@@ -27,6 +28,51 @@ export function SummaryCard({ s }: { s: StatSummary }) {
           {s.serve.ace} Aces / {s.serve.total} Tot
         </div>
       </div>
+      <div>
+        <div class="l">Block %</div>
+        <div class="v" style="color:var(--violet)">{formatPercent(s.block.blockPct)}</div>
+        <div class="s">
+          {s.block.block}B / {s.block.touch}T / {s.block.error}E
+        </div>
+      </div>
+      <div>
+        <div class="l">Setting Avg</div>
+        <div class="v" style="color:var(--teal)">{formatAverage(s.setting.average)}</div>
+        <div class="s">{s.setting.total} {s.setting.total === 1 ? 'set' : 'sets'}</div>
+      </div>
+      <div>
+        <div class="l">Good Sets</div>
+        <div class="v" style="color:var(--teal)">{formatPercent(s.setting.goodPct)}</div>
+        <div class="s">2s and 3s</div>
+      </div>
+    </div>
+  );
+}
+
+/** One line per band, with the live readouts that used to sit in each band's header. */
+export function ReadoutsCard({ s, setsPlayed }: { s: StatSummary; setsPlayed: number }) {
+  const bps = blocksPerSet(s.block.block, setsPlayed);
+  const rows: [string, string][] = [
+    ['Serve receive', `In-Sys ${formatPercent(s.pass.inSystemPct)}`],
+    ['Attacking', `${s.hit.kill} Kills (${s.hit.attempts} Att)`],
+    ['Serving', `${s.serve.total} Serves • ${s.serve.ace} Aces`],
+    [
+      'Blocking',
+      `${s.block.block} Blocks • ${s.block.touch} Touches • ${s.block.error} Err` +
+        (s.block.errorNet || s.block.errorUnder ? ` (${s.block.errorNet} net, ${s.block.errorUnder} under)` : '') +
+        (bps === null ? '' : ` • ${bps.toFixed(1)}/set`),
+    ],
+    ['Setting', `${s.setting.total} Sets • Good ${formatPercent(s.setting.goodPct)}`],
+  ];
+  return (
+    <div class="card">
+      <h2>Readouts</h2>
+      {rows.map(([label, value]) => (
+        <div class="rd" key={label}>
+          <span>{label}</span>
+          <span>{value}</span>
+        </div>
+      ))}
     </div>
   );
 }
@@ -71,6 +117,9 @@ export function StatsHead({ first }: { first: string }) {
       <th>Ace</th>
       <th>Hit %</th>
       <th>K-E-TA</th>
+      <th>Blk</th>
+      <th>Blk %</th>
+      <th>Set</th>
     </tr>
   );
 }
@@ -85,6 +134,9 @@ export function StatsCells({ s }: { s: StatSummary }) {
       <td>
         {s.hit.kill}-{s.hit.error}-{s.hit.attempts}
       </td>
+      <td>{s.block.block}</td>
+      <td>{formatPercent(s.block.blockPct)}</td>
+      <td>{formatAverage(s.setting.average)}</td>
     </>
   );
 }

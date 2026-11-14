@@ -93,6 +93,20 @@ describe('taps and undo', () => {
     expect((await db.events.get(id))?.deletedAt).toBe(first);
   });
 
+  it('stores block and setting taps, queues them for sync, and counts them in the stats', async () => {
+    const { set1 } = await newMatch();
+    const blockId = await addEvent(set1.id, { kind: 'block', value: 'block' });
+    await addEvent(set1.id, { kind: 'block', value: 'error_under' });
+    const settingId = await addEvent(set1.id, { kind: 'setting', value: 2 });
+    const { events } = await loadAppData();
+    expect(events).toHaveLength(3);
+    const s = summarize(events);
+    expect(s.block).toMatchObject({ block: 1, errorUnder: 1, blockPct: 1 });
+    expect(s.setting.average).toBe(2);
+    expect(await db.outbox.get(`events:${blockId}`)).toBeTruthy();
+    expect(await db.outbox.get(`events:${settingId}`)).toBeTruthy();
+  });
+
   it('rejects a tap for a set that does not exist', async () => {
     await expect(addEvent('nope', { kind: 'pass', value: 1 })).rejects.toThrow();
   });

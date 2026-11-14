@@ -42,17 +42,34 @@ create table if not exists public.events (
   owner_id    uuid not null default auth.uid() references auth.users (id) on delete cascade,
   match_id    uuid not null references public.matches (id) on delete cascade,
   set_id      uuid not null references public.sets (id) on delete cascade,
-  kind        text not null check (kind in ('pass', 'serve', 'hit')),
+  kind        text not null,
   value       text not null,
   occurred_at timestamptz not null,
   deleted_at  timestamptz,
-  updated_at  timestamptz not null default now(),
-  check (
-    (kind = 'pass'  and value in ('0', '1', '2', '3')) or
-    (kind = 'serve' and value in ('ace', 'in', 'error')) or
-    (kind = 'hit'   and value in ('kill', 'in', 'error'))
-  )
+  updated_at  timestamptz not null default now()
 );
+
+-- Which stat types and values the database accepts. This block removes any older rule on the
+-- events table and puts the current one in its place, so it also upgrades an existing database
+-- (Phase 7 added 'block' and 'setting'). Your saved events are not touched.
+do $$
+declare c text;
+begin
+  for c in select conname from pg_constraint where conrelid = 'public.events'::regclass and contype = 'c' loop
+    execute format('alter table public.events drop constraint %I', c);
+  end loop;
+end $$;
+
+alter table public.events add constraint events_kind_check
+  check (kind in ('pass', 'serve', 'hit', 'block', 'setting'));
+alter table public.events add constraint events_value_check
+  check (
+    (kind = 'pass'    and value in ('0', '1', '2', '3')) or
+    (kind = 'serve'   and value in ('ace', 'in', 'error')) or
+    (kind = 'hit'     and value in ('kill', 'in', 'error')) or
+    (kind = 'block'   and value in ('block', 'touch', 'error_net', 'error_under')) or
+    (kind = 'setting' and value in ('0', '1', '2', '3'))
+  );
 
 create index if not exists matches_owner_updated on public.matches (owner_id, updated_at);
 create index if not exists sets_match on public.sets (match_id);

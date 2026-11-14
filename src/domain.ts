@@ -59,6 +59,10 @@ export function describeEvent(e: StatEvent): string {
       return `Serve · ${{ ace: 'Ace', in: 'In', error: 'Fault' }[e.value]}`;
     case 'hit':
       return `Hit · ${{ kill: 'Kill', in: 'In-Play', error: 'Error' }[e.value]}`;
+    case 'block':
+      return `Block · ${{ block: 'Block', touch: 'Touch', error_net: 'Err (net)', error_under: 'Err (under)' }[e.value]}`;
+    case 'setting':
+      return `Setting ${e.value}`;
   }
 }
 
@@ -85,5 +89,16 @@ export function reportText(
     `Serving: ${s.serve.ace + s.serve.in}/${s.serve.total} in, ${s.serve.ace} aces, ${s.serve.error} faults`,
     `Hitting: ${formatHitting(s.hit.hittingPct)} (${s.hit.kill} K, ${s.hit.error} E, ${s.hit.attempts} att)`,
   );
+  // Older reports stay exactly as they were when a match has no blocking or setting taps.
+  if (s.block.attempts) {
+    lines.push(
+      `Blocking: ${s.block.block} blocks, ${s.block.touch} touches, ${s.block.error} errors (${s.block.errorNet} net, ${s.block.errorUnder} under), block ${formatPercent(s.block.blockPct)}`,
+    );
+  }
+  if (s.setting.total) {
+    lines.push(
+      `Setting: ${formatAverage(s.setting.average)} avg on ${s.setting.total} (3s ${s.setting.counts[3]}, 2s ${s.setting.counts[2]}, 1s ${s.setting.counts[1]}, 0s ${s.setting.counts[0]}), good ${formatPercent(s.setting.goodPct)}`,
+    );
+  }
   return lines.join('\n');
 }

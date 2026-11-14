@@ -8,7 +8,7 @@ import { navigate, paths } from '../router';
 import { ShareCard } from './Share';
 import { requestCode, signOut, syncNow, useSyncState, verifyCode } from '../sync/controller';
 import { eventsForMatch, formatAverage, formatHitting, summarize } from '../stats/engine';
-import { Icon, ICON, Shell, Tabs } from '../ui/Shell';
+import { Icon, ICON, RulesLink, Shell, Tabs } from '../ui/Shell';
 import { PassDistribution, StatsCells, StatsHead, SummaryCard } from '../ui/StatCards';
 
 function StartMatchForm() {
@@ -308,7 +308,7 @@ function AccountCard() {
 export function MatchesScreen({ data }: { data: AppData }) {
   const active = activeMatch(data.matches);
   return (
-    <Shell title={`${data.player?.name || 'Son'}’s Stats`} sub="Courtside stats" tabs={<Tabs tab="matches" />}>
+    <Shell title={`${data.player?.name || 'Son'}’s Stats`} sub="Courtside stats" right={<RulesLink />} tabs={<Tabs tab="matches" />}>
       <InstallHint />
       {active ? (
         <button class="big g-blue resume" onClick={() => navigate(paths.track(active.id))}>
@@ -333,7 +333,7 @@ export function SeasonScreen({ data }: { data: AppData }) {
   const season = summarize(data.events);
   const n = data.matches.length;
   return (
-    <Shell title={`${name}’s Stats`} sub="Courtside stats" tabs={<Tabs tab="season" />}>
+    <Shell title={`${name}’s Stats`} sub="Courtside stats" right={<RulesLink />} tabs={<Tabs tab="season" />}>
       <div>
         <h1>{label}</h1>
         <div class="note" style="margin-top:4px">

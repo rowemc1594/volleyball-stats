@@ -3,7 +3,7 @@ import type { AppData } from '../db/repo';
 import { reportText, setRecord, setsOf, shortDate } from '../domain';
 import { eventsForMatch, eventsForSet, summarize } from '../stats/engine';
 import { fetchSharedStats } from '../sync/share';
-import { Icon, Shell } from '../ui/Shell';
+import { Icon, RulesLink, Shell } from '../ui/Shell';
 import { PassDistribution, StatsCells, StatsHead, SummaryCard } from '../ui/StatCards';
 import { CopyReportButton } from './Track';
 
@@ -147,7 +147,17 @@ export function ViewerScreen({ token }: { token: string }) {
   const season = summarize(data.events);
   const n = data.matches.length;
   return (
-    <Shell viewer title={`${name}’s Stats`} sub="Shared view · Read-only" right={refreshBtn}>
+    <Shell
+      viewer
+      title={`${name}’s Stats`}
+      sub="Shared view · Read-only"
+      right={
+        <>
+          {refreshBtn}
+          <RulesLink />
+        </>
+      }
+    >
       <div>
         <h1>{who}</h1>
         <div class="note" style="margin-top:4px">

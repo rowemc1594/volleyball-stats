@@ -468,6 +468,67 @@ h1 {
   width: 62px;
   flex: 0 0 auto;
 }
+.rules-link {
+  font-size: 12px;
+  padding: 0 10px;
+  white-space: nowrap;
+  color: var(--sky);
+}
+details.rule {
+  border-top: 1px solid var(--line);
+}
+details.rule:first-of-type {
+  border-top: 0;
+}
+details.rule summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 11px 22px 11px 0;
+  position: relative;
+  min-height: 24px;
+}
+details.rule summary::-webkit-details-marker {
+  display: none;
+}
+details.rule summary::after {
+  content: '›';
+  position: absolute;
+  right: 4px;
+  top: 10px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.15s;
+}
+details.rule[open] summary::after {
+  transform: rotate(90deg);
+}
+.rt {
+  font-weight: 800;
+  font-size: 15.5px;
+}
+.rs {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: #c6d0e4;
+}
+.rsee {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+  background: var(--card2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px 11px;
+  margin: 0 0 11px;
+}
+input[type='search'] {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .hmain {
   flex: 1;
   min-width: 0;

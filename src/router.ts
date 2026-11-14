@@ -5,7 +5,8 @@ export type Route =
   | { name: 'season' }
   | { name: 'track'; matchId: string }
   | { name: 'match'; matchId: string }
-  | { name: 'share'; token: string };
+  | { name: 'share'; token: string }
+  | { name: 'rules' };
 
 /** Hash routes work on GitHub Pages without any server rewrites. */
 export function parseHash(hash: string): Route {
@@ -13,6 +14,7 @@ export function parseHash(hash: string): Route {
   const [name, id] = parts;
   if (name === 'share' && id) return { name: 'share', token: decodeURIComponent(id) };
   if (name === 'season') return { name: 'season' };
+  if (name === 'rules') return { name: 'rules' };
   if (name === 'track' && id) return { name: 'track', matchId: decodeURIComponent(id) };
   if (name === 'match' && id) return { name: 'match', matchId: decodeURIComponent(id) };
   return { name: 'matches' };
@@ -21,6 +23,7 @@ export function parseHash(hash: string): Route {
 export const paths = {
   matches: '#/',
   season: '#/season',
+  rules: '#/rules',
   track: (matchId: string) => `#/track/${encodeURIComponent(matchId)}`,
   match: (matchId: string) => `#/match/${encodeURIComponent(matchId)}`,
 };

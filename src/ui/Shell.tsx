@@ -115,6 +115,15 @@ export function SyncChip() {
   return <span class="sync ok" title="Saved and synced" role="img" aria-label="Saved and synced" />;
 }
 
+/** Top-right link on the home screens (also in the shared viewer). Opens the rules dictionary. */
+export function RulesLink() {
+  return (
+    <button class="hbtn rules-link" onClick={() => navigate(paths.rules)}>
+      Know the rules
+    </button>
+  );
+}
+
 export function Tabs({ tab }: { tab: 'matches' | 'season' }) {
   return (
     <>

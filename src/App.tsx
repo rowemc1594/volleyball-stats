@@ -1,5 +1,6 @@
 import { MatchDetailScreen } from './screens/MatchDetail';
 import { MatchesScreen, SeasonScreen } from './screens/Home';
+import { RulesScreen } from './screens/Rules';
 import { TrackScreen } from './screens/Track';
 import { ViewerScreen } from './screens/Viewer';
 import { useAppData } from './hooks';
@@ -12,6 +13,9 @@ export function App() {
   const { data, failed } = useAppData();
   // If a screen crashes, say so plainly instead of leaving a blank page. Saved stats are untouched.
   const [crash, clearCrash] = useErrorBoundary((err) => console.error('Screen crashed', err));
+
+  // The rules page is static text, so it never waits for (or needs) saved data.
+  if (route.name === 'rules') return <RulesScreen />;
 
   // A shared link never needs this device's own data, so show it without waiting for the local database.
   if (route.name === 'share') return <ViewerScreen token={route.token} />;

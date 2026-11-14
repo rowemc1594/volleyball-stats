@@ -468,6 +468,50 @@ h1 {
   width: 62px;
   flex: 0 0 auto;
 }
+.hmain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+}
+.hmain:disabled {
+  cursor: default;
+}
+.hedit {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sky);
+}
+.pick {
+  max-height: 88dvh;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+.pick .tabs {
+  padding-block: 0;
+}
+.pk {
+  grid-template-columns: repeat(4, 1fr);
+}
+.pk .key {
+  min-height: 46px;
+  padding: 4px 2px;
+}
+.pk .key strong {
+  font-size: 12px;
+}
+.pk .key.cur {
+  outline: 3px solid #fff;
+  outline-offset: 1px;
+}
 .hb {
   padding: 3px 10px;
   border-radius: 8px;

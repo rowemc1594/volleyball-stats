@@ -51,6 +51,20 @@ export const SETTING_KEYS: KeyDef[] = [
   { input: { kind: 'setting', value: 0 }, big: '0', title: 'Error', sub: 'Dropped / Double', colour: 'red' },
 ];
 
+/** Every action grouped by band, for the edit and add sheets (Block shows its error types too). */
+export const PICK_GROUPS: { title: string; colour: string; keys: KeyDef[] }[] = [
+  { title: 'Serve Receive (0–3)', colour: 'sky', keys: PASS_KEYS },
+  { title: 'Attacking / Hitting', colour: 'green', keys: HIT_KEYS },
+  { title: 'Serving', colour: 'amber', keys: SERVE_KEYS },
+  { title: 'Blocking', colour: 'violet', keys: [...BLOCK_KEYS, ...BLOCK_ERROR_KEYS] },
+  { title: 'Setting (0–3)', colour: 'teal', keys: SETTING_KEYS },
+];
+
+/** Short button text for a pick sheet, so "NET" is clear as a block error. */
+export function pickLabel(k: KeyDef): string {
+  return k.input.kind === 'block' && String(k.input.value).startsWith('error') ? `Err · ${k.big}` : k.big;
+}
+
 export function colourOf(kind: StatInput['kind'], value: StatInput['value']): Colour {
   const all = [...PASS_KEYS, ...HIT_KEYS, ...SERVE_KEYS, ...BLOCK_KEYS, ...BLOCK_ERROR_KEYS, ...SETTING_KEYS];
   return all.find((k) => k.input.kind === kind && k.input.value === value)?.colour ?? 'gray';

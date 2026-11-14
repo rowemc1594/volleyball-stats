@@ -6,7 +6,9 @@ import {
   finishMatch,
   reopenMatch,
   undoEvent,
+  updateEvent,
   type AppData,
+  type StatInput,
   type SetScore,
 } from '../db/repo';
 import type { Match, SetRow } from '../db/schema';
@@ -18,6 +20,8 @@ import {
   colourOf,
   HIT_KEYS,
   PASS_KEYS,
+  PICK_GROUPS,
+  pickLabel,
   SERVE_KEYS,
   SETTING_KEYS,
   type KeyDef,
@@ -123,6 +127,92 @@ function BlockErrorSheet({
             onClose();
           }}
         />
+        <button class="ghost" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One sheet for both "edit this action" and "add a missed action". Pick the set (when the match
+ * has more than one), then tap what happened. Edit mode also offers Remove.
+ */
+function ActionSheet({
+  title,
+  sets,
+  setId,
+  current,
+  onPick,
+  onRemove,
+  onClose,
+}: {
+  title: string;
+  sets: SetRow[];
+  setId: string;
+  current?: StatEvent;
+  onPick: (input: StatInput, setId: string) => void;
+  onRemove?: () => void;
+  onClose: () => void;
+}) {
+  const [chosenSet, setChosenSet] = useState(setId);
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      opener?.focus?.();
+    };
+  }, []);
+  return (
+    <div class="sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div class="card form sheetbox pick" role="dialog" aria-modal="true" aria-label={title}>
+        <h2 style="margin:0">{title}</h2>
+        {current ? <div class="note">Now: {describeEvent(current)}. Tap what it should be.</div> : null}
+        {sets.length > 1 ? (
+          <div class="tabs" role="group" aria-label="Set">
+            {sets.map((s) => (
+              <button
+                key={s.id}
+                class={`pill${chosenSet === s.id ? ' on' : ''}`}
+                aria-pressed={chosenSet === s.id}
+                onClick={() => setChosenSet(s.id)}
+              >
+                Set {s.setNumber}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {PICK_GROUPS.map((g) => (
+          <div key={g.title}>
+            <div class="bt" style={`color:var(--${g.colour})`}>
+              <span class="dot" style={`background:var(--${g.colour})`} />
+              {g.title}
+            </div>
+            <div class="keys pk" role="group" aria-label={g.title}>
+              {g.keys.map((k) => {
+                const isCurrent = !!current && sameStat(current, k);
+                return (
+                  <button
+                    key={`${k.input.kind}:${k.input.value}`}
+                    class={`key g-${k.colour}${isCurrent ? ' cur' : ''}`}
+                    aria-pressed={current ? isCurrent : undefined}
+                    onClick={() => onPick(k.input, chosenSet)}
+                  >
+                    <strong>{pickLabel(k)}</strong>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {onRemove ? (
+          <button class="ghost danger" onClick={onRemove}>
+            Remove this action
+          </button>
+        ) : null}
         <button class="ghost" onClick={onClose}>
           Cancel
         </button>
@@ -255,6 +345,9 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
   const [historyOpen, setHistoryOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [errOpen, setErrOpen] = useState(false);
+  const [editing, setEditing] = useState<StatEvent | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [pop, setPop] = useState<string | null>(null);
 
   useLeaveIfMissing(!!match);
@@ -436,13 +529,21 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
         {historyOpen ? (
           <div class="hbody">
             {history.length ? (
-              history.slice(0, 10).map((e) => (
+              (showAll ? history : history.slice(0, 25)).map((e) => (
                 <div class="hrow" key={e.id}>
-                  <span class="ht">
-                    {new Date(e.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                  </span>
-                  <span class={`hb g-${colourOf(e.kind, e.value)}`}>{describeEvent(e)}</span>
-                  <span class="hs">Set {matchSets.find((s) => s.id === e.setId)?.setNumber}</span>
+                  <button
+                    class="hmain"
+                    disabled={!live}
+                    aria-label={`Edit ${describeEvent(e)}`}
+                    onClick={() => setEditing(e)}
+                  >
+                    <span class="ht">
+                      {new Date(e.occurredAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                    <span class={`hb g-${colourOf(e.kind, e.value)}`}>{describeEvent(e)}</span>
+                    <span class="hs">Set {matchSets.find((s) => s.id === e.setId)?.setNumber}</span>
+                    {live ? <span class="hedit">Edit</span> : null}
+                  </button>
                   {live ? (
                     <button class="hx" aria-label="Remove this touch" onClick={() => undo(e)}>
                       <Icon d={ICON.x} size={16} />
@@ -453,6 +554,21 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
             ) : (
               <div class="empty">No touches logged yet for this {sel === 'all' ? 'match' : 'set'}.</div>
             )}
+            {history.length > 25 && !showAll ? (
+              <button class="ghost" style="width:100%;margin-top:6px" onClick={() => setShowAll(true)}>
+                Show all {history.length} actions
+              </button>
+            ) : null}
+            {live ? (
+              <button class="ghost" style="width:100%;margin-top:6px" onClick={() => setAdding(true)}>
+                ＋ Add a missed action
+              </button>
+            ) : null}
+            {live ? (
+              <div class="note" style="margin-top:6px">
+                Tap an action to change it, move it to another set, or remove it.
+              </div>
+            ) : null}
             {sel === 'all' && live ? (
               <div class="note" style="margin-top:6px">
                 Taps in All Sets are recorded to Set {latest.setNumber}.
@@ -470,6 +586,47 @@ export function TrackScreen({ data, matchId }: { data: AppData; matchId: string 
       </div>
 
       {errOpen ? <BlockErrorSheet band={band} onClose={() => setErrOpen(false)} /> : null}
+
+      {editing ? (
+        <ActionSheet
+          title="Edit action"
+          sets={matchSets}
+          setId={editing.setId}
+          current={editing}
+          onPick={(input, setId) => {
+            updateEvent(editing.id, { input, setId })
+              .then((changed) => showToast(changed ? 'Action updated' : 'No change'))
+              .catch((err) => {
+                console.error(err);
+                showToast('Could not update that action');
+              });
+            setEditing(null);
+          }}
+          onRemove={() => {
+            undo(editing);
+            setEditing(null);
+          }}
+          onClose={() => setEditing(null)}
+        />
+      ) : null}
+
+      {adding ? (
+        <ActionSheet
+          title="Add a missed action"
+          sets={matchSets}
+          setId={target.id}
+          onPick={(input, setId) => {
+            addEvent(setId, input)
+              .then(() => showToast('Action added'))
+              .catch((err) => {
+                console.error(err);
+                showToast('Could not add that action');
+              });
+            setAdding(false);
+          }}
+          onClose={() => setAdding(false)}
+        />
+      ) : null}
 
       {sheetOpen ? (
         <EndSetSheet

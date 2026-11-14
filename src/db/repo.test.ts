@@ -13,6 +13,7 @@ import {
   setScoreSide,
   startMatch,
   undoEvent,
+  updateEvent,
 } from './repo';
 import { db } from './schema';
 
@@ -105,6 +106,50 @@ describe('taps and undo', () => {
     expect(s.setting.average).toBe(2);
     expect(await db.outbox.get(`events:${blockId}`)).toBeTruthy();
     expect(await db.outbox.get(`events:${settingId}`)).toBeTruthy();
+  });
+
+  it('edits an action in place: new value, same id and time, queued for sync', async () => {
+    const { set1 } = await newMatch();
+    const id = await addEvent(set1.id, { kind: 'pass', value: 2 });
+    const before = await db.events.get(id);
+    await db.outbox.clear();
+
+    expect(await updateEvent(id, { input: { kind: 'pass', value: 3 } })).toBe(true);
+    const after = await db.events.get(id);
+    expect(after).toMatchObject({ id, kind: 'pass', value: 3, setId: set1.id, occurredAt: before?.occurredAt });
+    expect(await db.events.count()).toBe(1);
+    expect(await db.outbox.get(`events:${id}`)).toBeTruthy();
+    expect(summarize((await loadAppData()).events).pass.average).toBe(3);
+  });
+
+  it('can change the kind of an action, for a tap on the wrong band', async () => {
+    const { set1 } = await newMatch();
+    const id = await addEvent(set1.id, { kind: 'hit', value: 'in' });
+    await updateEvent(id, { input: { kind: 'block', value: 'touch' } });
+    const s = summarize((await loadAppData()).events);
+    expect(s.hit.attempts).toBe(0);
+    expect(s.block.touch).toBe(1);
+  });
+
+  it('moves an action to another set of the same match, but not a set of a different match', async () => {
+    const { matchId, set1 } = await newMatch();
+    const set2Id = await endSet(matchId, 1, { us: null, them: null });
+    const other = await newMatch();
+    const id = await addEvent(set1.id, { kind: 'serve', value: 'ace' });
+
+    await updateEvent(id, { setId: set2Id });
+    expect((await db.events.get(id))?.setId).toBe(set2Id);
+    await expect(updateEvent(id, { setId: other.set1.id })).rejects.toThrow();
+    expect((await db.events.get(id))?.setId).toBe(set2Id);
+  });
+
+  it('does not edit a removed action or an unknown id', async () => {
+    const { set1 } = await newMatch();
+    const id = await addEvent(set1.id, { kind: 'pass', value: 1 });
+    await undoEvent(id);
+    expect(await updateEvent(id, { input: { kind: 'pass', value: 3 } })).toBe(false);
+    expect((await db.events.get(id))?.value).toBe(1);
+    expect(await updateEvent('nope', { input: { kind: 'pass', value: 3 } })).toBe(false);
   });
 
   it('rejects a tap for a set that does not exist', async () => {

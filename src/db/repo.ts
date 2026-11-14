@@ -120,6 +120,29 @@ export async function addEvent(setId: string, input: StatInput, id: string = uui
   return id;
 }
 
+/**
+ * Fix an action logged by mistake: change what it was, and/or move it to another set of the same
+ * match. The id and time stay the same, so the row is simply rewritten and synced again.
+ * Deleted actions and unknown ids are left alone.
+ */
+export async function updateEvent(id: string, change: { input?: StatInput; setId?: string }): Promise<boolean> {
+  return db.transaction('rw', db.events, db.sets, db.outbox, async () => {
+    const event = await db.events.get(id);
+    if (!event || event.deletedAt != null) return false;
+    const patch: Partial<StatEvent> = {};
+    if (change.input) Object.assign(patch, change.input);
+    if (change.setId && change.setId !== event.setId) {
+      const set = await db.sets.get(change.setId);
+      if (!set || set.matchId !== event.matchId) throw new Error('That set belongs to a different match');
+      patch.setId = change.setId;
+    }
+    if (!Object.keys(patch).length) return false;
+    await db.events.update(id, patch);
+    await queue('events', id);
+    return true;
+  });
+}
+
 /** Undo marks the row deleted. The row stays so a later sync can propagate it. */
 export async function undoEvent(id: string): Promise<void> {
   await db.transaction('rw', db.events, db.outbox, async () => {
